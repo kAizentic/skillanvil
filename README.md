@@ -1,9 +1,13 @@
-# agent-os
+# skillanvil
 
-The architecture layer of a personal agent operating system: a compiler that turns a versioned
-source tree of agent skills into a runtime, a deterministic lint engine that gates what ships, a
-set of enforcement hooks that make rules executable rather than advisory, and the architecture
-decision records behind all of it.
+A build-and-governance toolchain for agent skills: a compiler that turns a versioned source tree
+of agent skills into a runtime, a deterministic lint engine that gates what ships, a set of
+enforcement hooks that make rules executable rather than advisory, and the architecture decision
+records behind all of it.
+
+> Formerly published as `agent-os`. Renamed 2026-09-09 — the old name claimed an architecture this
+> project does not have, and collided with five live products. The reasoning is
+> [ADR 0019](docs/adr/0019-the-name-is-not-an-operating-system.md).
 
 This is a **published slice**, not the whole system. It contains the engine and the governance
 layer. It deliberately does not contain the knowledge base the system operates on, the skills
@@ -20,7 +24,7 @@ problems — they were build, governance, and measurement problems.
 
 | Path | What it is |
 |---|---|
-| `docs/adr/` | 16 architecture decision records — the reasoning, including what was tried and refuted. |
+| `docs/adr/` | 17 architecture decision records — the reasoning, including what was tried and refuted. |
 | `docs/skill-schema.md` | The frontmatter contract every skill is validated against. |
 | `docs/routines.md` | How scheduled, unattended agent routines are defined and governed. |
 | `compiler/` | Compiles the skill source tree to a runtime; a publish-integrity checker; a resource/MCP topology map builder. |

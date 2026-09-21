@@ -5,10 +5,6 @@ of agent skills into a runtime, a deterministic lint engine that gates what ship
 enforcement hooks that make rules executable rather than advisory, and the architecture decision
 records behind all of it.
 
-> Formerly published as `agent-os`. Renamed 2026-09-09 — the old name claimed an architecture this
-> project does not have, and collided with five live products. The reasoning is
-> [ADR 0019](docs/adr/0019-the-name-is-not-an-operating-system.md).
-
 This is a **published slice**, not the whole system. It contains the engine and the governance
 layer. It deliberately does not contain the knowledge base the system operates on, the skills
 that are coupled to it, or vendored third-party skills that aren't mine to redistribute.
@@ -60,25 +56,6 @@ py  lint-engine/tests/test_wikilink_nonmd.py
 
 All four are self-contained: the node guards assert against synthetic command strings, and the
 lint test builds a corpus in a temporary directory. Exit code 0 is pass.
-
-## What was removed before publishing, and why
-
-Stated plainly so the gaps read as decisions rather than omissions:
-
-- **Vendored skills.** 37 of the 83 skills in the source tree come from upstream repositories
-  (including 16 from Anthropic's skills repo under proprietary terms). Not mine to republish.
-- **All `examples/` directories.** By convention this system's examples are captured from real
-  runs, which means they contain real client and meeting content.
-- **Vault-coupled skills.** Skills whose logic is inseparable from the private knowledge base
-  they operate on.
-- **Telemetry, probes, and run logs.** Real operational data.
-- **One ADR and two skills** withheld as commercially sensitive.
-- **One test** (`test_equivalence.py`) that differentially compares the lint engine against the
-  live corpus. It cannot run without that corpus, so shipping it would have shipped a test that
-  can never pass.
-
-Paths and identifiers throughout have been genericized; a private vault root appears as
-`<VAULT_ROOT>`.
 
 ## License
 

@@ -199,7 +199,7 @@ function stripScalar(s) {
 // Discovery
 // =============================================================================
 // Reads every SKILL.md. Directory metadata (readdir/stat/exists) is cheap even on
-// a cloud-sync root; file CONTENT is not — on this vault's Dropbox each cold open
+// a cloud-sync root; file CONTENT is not — on this vault's cloud-sync folder each cold open
 // costs ~2s, so 81 serial reads = ~157s before any command could even dispatch.
 // The reads are therefore issued concurrently: measured 157s -> ~39s (~4x). The
 // walk stays synchronous because it is already sub-20ms.
@@ -447,7 +447,7 @@ function copyDir(src, dest) {
     // SKIP_DIRS (node_modules, Templates) was previously only applied to category
     // names in discoverSkills, never here — so a vendored harness's node_modules
     // (site-harvest ships 3,881 files) was mirrored verbatim into the runtime on
-    // every compile. On a Dropbox cloud-sync root each cold read costs ~2s, which
+    // every compile. On a cloud-sync root each cold read costs ~2s, which
     // turned one skill into hours and stalled the whole pipeline.
     if (SKIP_DIRS.has(entry.name)) continue;
     const s = path.join(src, entry.name);
@@ -775,7 +775,7 @@ async function compile(skills, { dryRun } = {}) {
     // Instead: build the whole tree in a staging dir, then swap it in with
     // rename(). Renames are metadata-only and same-parent, so the interval where
     // outDir is anything other than a complete tree is sub-millisecond. The slow
-    // part (reading source off Dropbox) now happens entirely off to the side,
+    // part (reading source off the cloud-sync folder) now happens entirely off to the side,
     // where nothing points at it. Staging names are dot-prefixed so the readdir
     // consumers elsewhere in this file skip them if a crash ever leaves one behind.
     const staging = path.join(STAGING_ROOT, `staging-${s.slug}`);
@@ -899,7 +899,7 @@ function buildGraph(skills, { dryRun } = {}) {
     if (!inCat.length) continue;
     md += `### ${cat}\n`;
     for (const s of inCat) {
-      md += `- `| s.skillId}` \`${idOf(s)}\` — v${s.data.version || '0.0.0'} · ${s.data.status || 'draft'}\n`;
+      md += `- [[${s.data.name || s.skillId}]] \`${idOf(s)}\` — v${s.data.version || '0.0.0'} · ${s.data.status || 'draft'}\n`;
     }
     md += '\n';
   }
@@ -1133,88 +1133,99 @@ function syncCowork({ push, dryRun }) {
 // The failure this exists for stayed invisible for ten days precisely because every
 // invoker reported success while the runtime tree was half-built. Report-only: a
 // finding must not block a compile, because re-running the compile is the fix.
-function runPublishIntegrityCheck(log) {
-  if (!fs.existsSync(PUBLISH_INTEGRITY_SCRIPT)) return; // check not installed
-  const BANNER = 'PUBLISH INTEGRITY CHECK';
+// --- shared stage runner ------------------------------------------------------
+// One parameterised runner replaced three near-identical copies (2026-09-22).
+//
+// It also retires the discriminator those copies used. Each decided "is this a real
+// finding, or did the script itself crash?" with `report.includes(BANNER)` - a substring
+// match against a hardcoded header in HUMAN-READABLE stdout. Rename a report header and
+// the pipeline silently starts reading its own checks wrong; that is the same fragility
+// run-summary.ps1 was written to end on the runner side.
+//
+// The signal is now `--json` parsing: each of these checks already implements it, and a
+// parseable verdict proves the script ran and reached a conclusion. Human output is
+// unchanged - the JSON probe runs only on the non-zero path, to classify it.
+function probeRanCleanly(bin, script, args) {
   try {
-    const out = execSync(`node "${PUBLISH_INTEGRITY_SCRIPT}" --vault "${VAULT_ROOT}"`, {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    log(String(out).trim());
+    const out = execSync(`${bin} "${script}" ${args} --json`,
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    JSON.parse(String(out));
+    return true;                                  // exit 0 AND valid JSON
   } catch (e) {
-    const report = e && e.stdout ? String(e.stdout) : '';
-    if (!report.includes(BANNER)) {
-      log(`publish-integrity: skipped (check errored: ${String(e && e.message).split('\n')[0]}).`);
+    const s = e && e.stdout ? String(e.stdout) : '';
+    try { JSON.parse(s); return true; } catch { return false; }
+  }
+}
+
+function runCheckStage(log, opts) {
+  const { script, args, label, bins, cleanMsg, onClean, onFindings } = opts;
+  if (!fs.existsSync(script)) return;             // check not installed
+  for (const bin of bins) {
+    try {
+      const out = execSync(`${bin} "${script}" ${args}`, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      if (onClean) onClean(String(out));           // stage renders its own success output
+      else if (cleanMsg) log(cleanMsg);
+      return;                                     // exit 0 = clean
+    } catch (e) {
+      if (e && e.code === 'ENOENT') continue;     // interpreter absent -> try next
+      const report = e && e.stdout ? String(e.stdout) : '';
+      if (!probeRanCleanly(bin, script, args)) {  // the script itself errored, not a finding
+        log(`${label}: skipped (check errored: ${String(e && e.message).split('\n')[0]}).`);
+        return;
+      }
+      const n = e && typeof e.status === 'number' ? e.status : '?';
+      onFindings(report, n);
       return;
     }
-    log('\n⚠️  publish-integrity: the runtime tree is NOT usable as published.');
-    process.stdout.write(report.endsWith('\n') ? report : report + '\n');
   }
+  log(`${label}: skipped (no python interpreter found).`);
+}
+
+function runPublishIntegrityCheck(log) {
+  runCheckStage(log, {
+    script: PUBLISH_INTEGRITY_SCRIPT,
+    args: `--vault "${VAULT_ROOT}"`,
+    label: 'publish-integrity',
+    bins: ['node'],
+    cleanMsg: null,
+    onClean: (out) => log(out.trim()),            // the script prints its own OK summary
+    onFindings: (report) => {
+      log('\n\u26a0\ufe0f  publish-integrity: the runtime tree is NOT usable as published.');
+      process.stdout.write(report.endsWith('\n') ? report : report + '\n');
+    },
+  });
 }
 
 function runRoutineCouplingCheck(log) {
-  if (!fs.existsSync(ROUTINE_COUPLING_SCRIPT)) return; // check not installed → nothing to do
-  const BANNER = 'ROUTINE-SKILL COUPLING CHECK';
-  for (const bin of ['py', 'python3', 'python']) {
-    try {
-      execSync(`${bin} "${ROUTINE_COUPLING_SCRIPT}" --vault "${VAULT_ROOT}"`,
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-      log('routine-coupling: OK — every scheduled routine resolves to a live skill.');
-      return; // exit 0 = no broken references
-    } catch (e) {
-      if (e && e.code === 'ENOENT') continue;           // interpreter absent → try next
-      const report = e && e.stdout ? String(e.stdout) : '';
-      if (!report.includes(BANNER)) {                   // the script itself errored, not a finding
-        log(`routine-coupling: skipped (check errored: ${String(e && e.message).split('\n')[0]}).`);
-        return;
-      }
-      const n = e && typeof e.status === 'number' ? e.status : '?';
-      log(`\n⚠️  routine-coupling: ${n} BROKEN routine reference(s) — a scheduled routine invokes a skill that no longer resolves.`);
+  runCheckStage(log, {
+    script: ROUTINE_COUPLING_SCRIPT,
+    args: `--vault "${VAULT_ROOT}"`,
+    label: 'routine-coupling',
+    bins: ['py', 'python3', 'python'],
+    cleanMsg: 'routine-coupling: OK \u2014 every scheduled routine resolves to a live skill.',
+    onFindings: (report, n) => {
+      log(`\n\u26a0\ufe0f  routine-coupling: ${n} BROKEN routine reference(s) \u2014 a scheduled routine invokes a skill that no longer resolves.`);
       log('    Report-only (compile NOT blocked), but fix before the routine next fires:');
       process.stdout.write(report.endsWith('\n') ? report : report + '\n');
-      return;
-    }
-  }
-  log('routine-coupling: skipped (no python interpreter found).');
+    },
+  });
 }
 
-// =============================================================================
-// Portfolio structural check — non-fatal advisory stage (`all` only)
-// -----------------------------------------------------------------------------
-// skill-portfolio-review's deterministic half is schedulable but had no trigger:
-// its "monthly cadence" was aspirational (the graph shows the skill has zero inbound
-// edges — nothing in the system ever invokes it). This stage runs portfolio_check.py
-// against the SOURCE tree at `sync my skills` time and, when categories fire, prints
-// the category headers plus a nudge to run the full skill-portfolio-review (which owns
-// the judgment half + grill gate). REPORT-ONLY: never aborts the compile or changes
-// the exit code. Soft-skips if no Python is present.
-// =============================================================================
 function runPortfolioCheck(log) {
-  if (!fs.existsSync(PORTFOLIO_CHECK_SCRIPT)) return; // check not installed → nothing to do
-  const BANNER = 'SKILL-PORTFOLIO CHECK';
-  for (const bin of ['py', 'python3', 'python']) {
-    try {
-      execSync(`${bin} "${PORTFOLIO_CHECK_SCRIPT}" --skills-root "${VAULT_SKILLS_DIR}"`,
-        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-      log('portfolio-check: CLEAN — no structural issues in the skill portfolio.');
-      return; // exit 0 = clean
-    } catch (e) {
-      if (e && e.code === 'ENOENT') continue;           // interpreter absent → try next
-      const report = e && e.stdout ? String(e.stdout) : '';
-      if (!report.includes(BANNER)) {                   // the script itself errored, not a finding
-        log(`portfolio-check: skipped (check errored: ${String(e && e.message).split('\n')[0]}).`);
-        return;
-      }
-      const n = e && typeof e.status === 'number' ? e.status : '?';
+  runCheckStage(log, {
+    script: PORTFOLIO_CHECK_SCRIPT,
+    args: `--skills-root "${VAULT_SKILLS_DIR}"`,
+    label: 'portfolio-check',
+    bins: ['py', 'python3', 'python'],
+    cleanMsg: 'portfolio-check: CLEAN \u2014 no structural issues in the skill portfolio.',
+    onFindings: (report, n) => {
       const headers = report.split('\n').filter((l) => l.startsWith('### '));
-      log(`⚠️  portfolio-check: ${n} categor(y/ies) fired — run skill-portfolio-review ("review my skills") to triage:`);
+      log(`\u26a0\ufe0f  portfolio-check: ${n} categor(y/ies) fired \u2014 run skill-portfolio-review ("review my skills") to triage:`);
       for (const h of headers) log(`    ${h.slice(4)}`);
-      return;
-    }
-  }
-  log('portfolio-check: skipped (no python interpreter found).');
+    },
+  });
 }
+
 
 // =============================================================================
 // Example-backlog manifest — data feed for the skill-run nudge hooks

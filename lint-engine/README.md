@@ -1,5 +1,16 @@
 # portfolio_lint — the standing-stock review chassis
 
+> **Resolved 2026-09-22 (ADR 0018, option 1c): this is no longer a chassis.** A re-measured census
+> found a third caller the ADR had missed, a usage collector that imports five of the six modules
+> the ADR had marked for retirement. So the plan below ("`frontmatter` is the chassis, the rest
+> retire") was reversed. The package is now the support library of that one production script, and
+> it lives beside it in the source tree; this directory keeps the published copy. `wikilink` was
+> deleted (zero production callers, and it was the unfixed fork of a resolver that is fixed
+> elsewhere). `fs.all_md` now excludes generated trees; without that, 40% of the walked corpus
+> was cached duplicates and a derived check inverted to zero. Everything below is kept as the
+> record of how the decision was reached. Read [ADR 0018](../docs/adr/0018-the-chassis-is-one-module-not-six.md)
+> for the resolution.
+
 Five reviews in this vault are the same architecture with different nouns — but
 they are **not** all the same language, which bounds what a shared package can be:
 
@@ -25,14 +36,14 @@ split that no amount of adoption effort changes.
 
 ## What the chassis owns
 
-| Module | Responsibility | Status after ADR 0018 |
-|---|---|---|
-| `frontmatter` | one parser — scalars, inline lists, block lists, comments, quotes | **kept — this is the chassis** |
-| `fs` | read (BOM-tolerant) · walk · vault-relative paths · **fail-closed root discovery** | retire — one caller; walker also lacks `GENERATED_DIRS` |
-| `wikilink` | extraction (code-stripped) · resolution with the no-basename-fallback-for-slashed-paths rule | retire — one caller (`wiki_lint`) |
-| `finding` | `Finding` / `Result` · hard-vs-soft severity · the categories-fired exit code | retire — zero callers |
-| `ack` | the settled-judgment ledger, **as data**, with stale-ACK detection | retire — zero callers |
-| `report` | the JSON contract `vault_health.py` already consumes, as a superset | retire — the contract works without it |
+| Module | Responsibility | Planned 2026-08-21 | Resolved 2026-09-22 |
+|---|---|---|---|
+| `frontmatter` | one parser — scalars, inline lists, block lists, comments, quotes | kept — the chassis | **kept** |
+| `fs` | read (BOM-tolerant) · walk · vault-relative paths · **fail-closed root discovery** | retire | **kept**, walker now excludes generated trees |
+| `wikilink` | extraction (code-stripped) · resolution with the no-basename-fallback-for-slashed-paths rule | retire | **deleted** (unfixed fork, 0 production callers) |
+| `finding` | `Finding` / `Result` · hard-vs-soft severity · the categories-fired exit code | retire — "zero callers" | **kept** (the census missed a caller) |
+| `ack` | the settled-judgment ledger, **as data**, with stale-ACK detection | retire — "zero callers" | **kept** |
+| `report` | the JSON contract `vault_health.py` already consumes, as a superset | retire | **kept** |
 
 ## What it deliberately does not own
 

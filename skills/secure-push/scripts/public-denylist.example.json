@@ -1,0 +1,10 @@
+{
+  "_note": "TEMPLATE for the private deny-list used by credential-scan.mjs --tier public. Copy it OUTSIDE every repository (default locations: <vault>/private/secure-push/public-denylist.json, or ~/.secure-push/public-denylist.json; or pass --denylist / set SECURE_PUSH_DENYLIST) and fill in your real terms. Never commit the filled copy: secure-push is published, so a deny-list tracked beside it would publish the names it exists to keep out. The public tier refuses to run (exit 2) without one.",
+  "patterns": [
+    { "name": "owner-surname",   "re": "\\bLastname\\b", "flags": "i", "allowPaths": ["LICENSE"], "_why": "Your name. LICENSE is the one place it belongs." },
+    { "name": "owner-handle",    "re": "yourhandle", "flags": "i" },
+    { "name": "client-acme",     "re": "\\bAcme\\b", "_why": "One entry per client. Never name a client in a public artifact." },
+    { "name": "partner-name",    "re": "\\bJordan\\b", "_why": "People you work with, by first name if it is distinctive enough." },
+    { "name": "storage-setup",   "re": "\\bSyncedDriveName\\b", "flags": "i", "_why": "Anything that describes your private setup that a stranger has no need to know." }
+  ]
+}

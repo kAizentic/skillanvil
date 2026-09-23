@@ -3,149 +3,154 @@ id: secure-push
 name: secure-push
 provenance: authored
 slug: secure-push
-description: Safely stage, commit, and push a repository — and take it public — after scanning tracked content AND git history for hardcoded secrets, API keys, tokens, and PII. Use when the user says "secure push", "safe push", "safe publish", "commit and push", "push this repo", "publish this repo", "make this repo public", or is about to push or make public any repository — especially before a first public push. Blocks on any credential; runs a history-aware final gate before flipping a repo to public. On public repos, also checks that branch, commit, PR and test wording does not disclose the vulnerability being fixed, or name a client.
-version: 1.2.0
+description: Scan-gated commit and push, strictness matched to who can read the remote. Private remote - credentials block, personal content is fine. Public remote - no baseline, PII, a private deny-list (name, clients, local paths) and vault pointers block, history is scanned, wording checked for disclosure. Use when the user says "secure push", "safe push", "commit and push", "push this repo", or is about to push any repo. Never creates repos, flips visibility, or picks what goes public - publishing is separate.
+version: 2.1.0
 category: Automation
 status: active
 hitl_gate: grill
 unattended: forbidden
-unattended_note: "Pushes commits and flips repos public. The human IS the control — a secret-scan verdict that nobody reads before a publish is not a gate."
-tags: [git, security, secrets, publish, safety, disclosure, confidentiality]
+unattended_note: "Pushes commits. The human IS the control - a scan verdict that nobody reads before a push is not a gate. The mechanical half (credential-scan.mjs, private tier) already runs unattended at commit time; the push itself does not."
+tags: [git, security, secrets, push, safety, disclosure, confidentiality]
 inputs:
-  - a git repo (cwd or a given path) ready to commit, push, or be made public
+  - a git repo (cwd or a given path) ready to commit and push
 outputs:
-  - a committed + pushed (and optionally publicized) repo, OR a blocked push/publish with a redacted findings report
+  - a committed + pushed repo, OR a blocked push with a redacted findings report
 tools: [Bash, Read]
 triggers:
   - secure push
-  - safe push / safe publish / commit and push
-  - push this repo / publish this repo / make this repo public
+  - safe push / commit and push
+  - push this repo / push to <remote>
 dependencies: []
 composes_with: [softdev-workflows, review, tdd]
 owner: the operator
-last_updated: 2026-08-19
+last_updated: 2026-09-23
 ---
 
-# Secure Push — scan-gated commit, push & publish
+# Secure Push — a push gate matched to the remote's audience
 
-Push a repo to its remote — and take it public — only after proving no credential or PII
-reaches (or already sits in) the remote. Origin: the Claude Code `/insights` report
-(2026-06/07) flagged repeated secret-to-env-var cleanup and an incident where a live
-GitHub PAT was pasted inline; the 2026-07-01 snapshot re-raised "codify publish-and-secure
-as a `/publish` skill." This skill makes the safety gate fire every time instead of
-relying on memory.
+Push a repo only after proving nothing reaches the remote that its **audience** shouldn't read.
+Origin: the Claude Code `/insights` report (2026-06/07) flagged repeated secret-to-env-var cleanup
+and an incident where a live GitHub PAT was pasted inline. This skill makes the gate fire every
+time instead of relying on memory.
 
-Two scopes, one skill:
+**v2.0 (2026-09-23) split two jobs that v1 did together.** v1 also *published*: it created public
+repos, added README/.gitignore hygiene, and flipped visibility. That is a different decision
+("should this exist in public at all, and what of it?"), with a different owner, so it left this
+skill. What stayed is the gate, now **two-tier**, because the right strictness depends on who can
+read the remote:
 
-- **Push** (routine) — commit + push to an existing remote. Steps 1–6.
-- **Publish** (going public: first push to a new remote, or flipping visibility to public)
-  — adds Steps 7–9: **history-aware** scan, publish hygiene, and a final visibility gate.
-  A working-tree-clean repo can still leak a secret buried in an old commit, so publishing
-  scans *all history*, not just HEAD.
+| | **Private tier** | **Public tier** |
+|---|---|---|
+| When | remote not readable by a stranger | remote readable by a stranger, or visibility can't be determined |
+| Credentials | hard block, **ratcheted** (baselined doc placeholders pass) | hard block, **no baseline**: every match blocks until the text changes |
+| PII / names / meeting content | allowed: a private backup of your system is supposed to hold them | **hard block** |
+| Private deny-list (your name, clients, local setup) | off | **hard block** (narrow `allowPaths` for intentional ones, e.g. `LICENSE`) |
+| Structural leaks (wikilinks, private folder names, real home paths, emails) | off | **hard block** |
+| History | not rescanned: every commit was already scanned when it was made | scanned in full on the **first push to that remote**, and whenever history was rewritten |
+| Disclosure wording | off | read and judged, never presented as a scan result |
 
 ## Rules
 
 **MUST:**
-- Run the secret/PII scan on staged AND tracked content **before** committing.
-- Before making a repo **public** (or first-pushing to a public remote), scan **git
-  history** (`git log -p`), not just the working tree — a removed secret still lives in
-  old commits.
-- **Block** on any match — do not commit, push, or publicize while a credential is present.
-- Print only **redacted** matches (path:line + last 4 chars); never the full value.
-- Confirm remote, branch, and (for publish) the visibility change with the user before the
-  first push to a new/public remote.
+- Decide the tier by **measuring**, not assuming: `node scripts/detect-tier.mjs --repo <path>`.
+  It asks as an anonymous stranger (`gh repo view` answers as the owner, the wrong identity for
+  this question). An undeterminable answer is **public**.
+- Run `scripts/credential-scan.mjs` for that tier on tracked content **before** committing.
+- **Block** on any hard finding. Do not commit or push while one is present.
+- Print only **redacted** matches (the scanner already does: path + prefix + last 4 chars).
+- Confirm remote and branch with the user before the **first** push to a remote.
 - Re-scan after remediation and after commit, before declaring done.
-- On a **public** repo, check every artifact the push *names* — branch, commit message, PR
-  title/body, test names — against [Disclosure hygiene](#disclosure-hygiene-public-repos).
-  A clean scan proves no secret **value** leaks; it says nothing about what the *wording*
-  discloses.
+- On a **public** remote, check every artifact the push *names* (branch, commit message, PR
+  title/body, test names) against [Disclosure hygiene](#disclosure-hygiene-public-tier).
 
 **MUST NEVER:**
-- Commit, push, or publicize while any tracked file **or reachable commit** contains a
-  secret, key, token, or PII.
+- Push while the scan for the remote's tier is red, or exited 2. **Exit 2 means "could not
+  measure", which is never "clean".**
 - Echo, log, or place a full token/key value in chat, a commit message, or a file.
 - Force-push, or push to a remote the user did not confirm.
-- Flip a repo to public on the user's behalf without an explicit confirm on that action.
-- On a public repo, let a branch name, commit message, PR title, test description, or code
-  comment **name the vulnerability class being fixed** — that discloses the attack vector to
-  everyone watching the repo, before or after the fix lands.
-- Put a **client or customer name** in any public-facing artifact (commit, branch, PR, code,
-  comment, test name, fixture, sample data).
-- Run git through **sandbox bash** on the Dropbox-bridged vault — git there must run
-  natively (Claude Code), not the sandbox. (See vault git/sandbox constraint.)
+- **Create a repository, change a repository's visibility, or decide what content should be
+  public.** Those are publishing decisions. If the user asks for one, say it is out of scope here.
+  If a private remote is about to go public, the public tier with `--history` must pass first,
+  and whoever makes it public runs that gate.
+- Accept a public-tier finding with `--update-baseline`. The public tier has no baseline (the
+  scanner refuses, exit 2). A public match gets fixed in the text.
+- Track the filled deny-list in any repo. secure-push itself is published in the public slice,
+  so a deny-list tracked beside it would publish the names it exists to keep out.
+- On a public remote, let a branch name, commit message, PR title, test description, or code
+  comment **name the vulnerability class being fixed**, or name a **client or customer**.
+- Run git through **sandbox bash** on the cloud-synced vault. Git there must run natively.
 
 ## Workflow
 
-### Push (Steps 1–6 — every commit & push)
+1. **Establish state and tier.** `git status`, `git remote -v`, current branch. Confirm this is
+   the repo and remote the user intends. Then
+   `node scripts/detect-tier.mjs --repo <path> [--remote <name>]`. Say the tier and its reason out
+   loud (for example, `tier=public ... anonymous GET 200`).
+2. **Scan the tree for that tier.**
+   - Private: `node scripts/credential-scan.mjs --repo <path>`
+   - Public: `node scripts/credential-scan.mjs --repo <path> --tier public`, plus `--history` if
+     this is the first push to the remote or history was rewritten.
+   - Exit 0 clean · 1 blocked · **2 could not run** (no git, bad rule file, public tier with no
+     deny-list). Treat 2 as blocked, and fix what it names.
+3. **Gate.** Findings: STOP. Report each as the scanner prints it, and recommend the fix:
+   - credential → env var + `.env.example` (placeholder keys only) + `.gitignore`, and
+     `git rm --cached` any tracked secret file;
+   - private-tier false positive → read it, then `--update-baseline` (that asserts a human read it);
+   - public-tier name, pointer or path → rewrite the text (keep the engineering explanation, drop
+     the pointer), or add a narrow `allowPaths` entry to the deny-list if it is intentional;
+   - **history-only hit** → a new commit cannot fix it. It needs a history rewrite **in a fresh
+     clone** (never `filter-repo` on a live working copy), plus rotating the credential. Flag it to
+     the user and do not push.
+4. **Disclosure check (public tier only).** Read the branch name, the pending commit message(s),
+   and any test names added against [Disclosure hygiene](#disclosure-hygiene-public-tier) *before*
+   committing. Renaming a branch after it is pushed does not un-disclose it.
+5. **Commit.** Stage, commit with a clear message (never containing a secret).
+6. **Patch notes: one short entry in the repo's own `CHANGELOG.md`, every push.**
+   - `node scripts/patch-notes.mjs raw --repo <path>` lists what is about to go (commits in
+     `<remote>/<branch>..HEAD` plus files grouped by folder).
+   - Write **2–5 bullets for that repo's reader**, not a list of commit subjects. Group by effect
+     ("Added / Changed / Fixed"), one line each, and say what the thing now does. Forty nightly
+     `chore(generated)` commits become one line or none.
+     - *Private tier:* plain and complete. The reader is you, later, asking "what changed that week?"
+     - *Public tier:* same [disclosure](#disclosure-hygiene-public-tier) rules as a commit message.
+       Describe behaviour, never the threat, never a client. **Never mention what was left out or
+       why.** The deny-list and structural patterns scan the CHANGELOG like any other file.
+   - `node scripts/patch-notes.mjs write --repo <path> --notes <file>` prepends a dated entry tagged
+     with the exact range (`abc123..def456`). It refuses empty notes and refuses a range that
+     already has an entry, so a retried push can't log twice.
+   - Commit it (`docs: patch notes <date>`), then re-run step 2's scan. The notes are new text.
+7. **Push** to the confirmed remote and branch.
+8. **Verify and report.** Re-run step 2's scan on the committed tree, then confirm the remote
+   actually moved (`git rev-parse HEAD` == `git rev-parse <remote>/<branch>` after a fetch). Report:
+   tier and why, the patch-notes entry, what was pushed, the scan result, and for the public tier, the disclosure check as
+   **read and judged**.
 
-1. **Establish repo state.** `git status`, `git remote -v`, current branch. Confirm this
-   is the repo and remote the user intends. Decide scope: is this a plain push, or a
-   **publish** (new remote / going public)? If publish, Steps 7–9 also apply.
-2. **Scan (working tree).** Grep tracked files and `git diff --cached` for the patterns in
-   [Scan reference](#scan-reference). Flag any `.env*` file that is not gitignored.
-3. **Gate.** If there are findings: STOP. Report each as `path:line — <type> (…last4)`,
-   recommend env-var extraction + `.gitignore`, and do not proceed to commit.
-4. **Remediate (with the user) — env extraction.** Move secrets to env vars, add a
-   `.env.example` with placeholder keys (no values), add the real file to `.gitignore`,
-   `git rm --cached` any tracked secret file. Re-scan until clean.
-5. **Commit + push.** Stage, commit with a clear message (never containing a secret),
-   push to the confirmed remote/branch. If the remote is **public**, run the
-   [Disclosure hygiene](#disclosure-hygiene-public-repos) check on the branch name and commit
-   message *before* committing — renaming a branch after it is pushed does not un-disclose it.
-6. **Verify + report.** Re-scan `git ls-files` content to confirm nothing tracked
-   contains a credential; report what was pushed and the clean result. If this was a
-   plain push (not a publish), stop here.
+## Rule files (one home each)
 
-### Publish (Steps 7–9 — first public push / going public)
+All in `scripts/`. **Do not restate patterns in this file.** A second copy is the mirror drift
+this system lints for.
 
-7. **History-aware scan.** Run the [Scan reference](#scan-reference) patterns across all
-   history: `git log -p --all | grep -nE '<pattern>'` (or `git rev-list --all` + per-blob
-   grep). A hit anywhere in history is a **hard block** — a public repo exposes the whole
-   log. Remediation here is not a new commit: it needs history rewrite (`git filter-repo`
-   / BFG) and rotating the leaked credential. Flag both to the user; do not publicize.
-8. **Publish hygiene.** Ensure the repo is presentable and defended:
-   - `.gitignore` covers the common secret/junk set (`.env*`, `*.pem`, `id_rsa*`,
-     `*.key`, `node_modules/`, build dirs). Add if missing.
-   - A `README.md` exists (offer to scaffold a minimal one if absent).
-   - **Token-scope check.** If the push used a GitHub token / `gh` auth, `gh auth status`
-     to confirm the scopes are what's intended (warn on an over-broad token); confirm no
-     token value is embedded in any workflow file or committed config.
-   - **Disclosure sweep over history.** Going public exposes every past branch name, commit
-     message, and test name at once — so run [Disclosure hygiene](#disclosure-hygiene-public-repos)
-     across `git log --oneline --all` and the test suite, not just the current commit. Flag
-     hits to the user: a vulnerability named in old commit messages is a **disclosure**
-     decision (it may need the fix released first), not something to silently rewrite.
-9. **Final PII gate + visibility.** One last sweep for PII (emails, keys, internal URLs)
-   across tracked content AND history, then state the visibility change explicitly and get
-   the user's confirm before flipping to public (e.g. `gh repo edit --visibility public`).
-   Never change visibility silently. Report: what was pushed, history clean, hygiene added,
-   visibility set.
+| File | Tracked? | What |
+|---|---|---|
+| `credential-patterns.json` | yes | the credential patterns + tracked-secret-file globs (both tiers) |
+| `credential-baseline.json` | yes | private-tier ratchet: hashes of human-reviewed matches, never the text |
+| `public-patterns.json` | yes (ships in the slice) | generic structural leaks: wikilinks, private folder names, real home paths, emails |
+| `public-denylist.example.json` | yes (ships) | the template for your private deny-list |
+| **your deny-list** | **never** | your name, handles, clients, collaborators, private setup. Found at `--denylist`, `$SECURE_PUSH_DENYLIST`, `<vault>/private/secure-push/public-denylist.json`, or `~/.secure-push/public-denylist.json` |
+| `detect-tier.mjs` | yes | anonymous visibility probe → tier |
+| `patch-notes.mjs` | yes | `raw` (what is about to be pushed) and `write` (dated, range-tagged CHANGELOG entry); `patch-notes.test.mjs` |
+| `credential-scan.test.mjs` | yes | `node credential-scan.test.mjs`, including the negative-class cases (must stay silent on a benign repo) |
 
-## Scan reference
+The scanner blocks known **shapes**. It never makes a push "safe", and a clean public-tier scan
+says nothing about whether the content gives away methodology. That is a publishing judgment, and
+it is not made here.
 
-Match (case-insensitive where sensible), then redact before display:
+## Disclosure hygiene (public tier)
 
-- GitHub PAT: `ghp_[A-Za-z0-9]{36}`, `github_pat_[A-Za-z0-9_]{22,}`
-- OpenAI / Anthropic keys: `sk-[A-Za-z0-9]{20,}`, `sk-ant-[A-Za-z0-9-]{20,}`
-- AWS access key: `AKIA[0-9A-Z]{16}`
-- Google API key: `AIza[0-9A-Za-z_-]{35}`
-- Slack token: `xox[baprs]-[A-Za-z0-9-]+`
-- Private key block: `-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----`
-- Generic assignments: `(api[_-]?key|secret|token|password|passwd|bearer)\s*[:=]\s*['"][^'"]{8,}`
-- Env leakage: any `.env`, `.env.*`, `*.pem`, `id_rsa` tracked by git
-- PII: raw email/SSN/phone patterns in data files (flag, don't hard-block unless obvious)
-
-A hit on any credential category is a hard block — in the **working tree** (Steps 2–3) or,
-for a publish, **anywhere in history** (Step 7). Env-file tracking is a hard block. PII
-patterns are a warning that needs the user's call; on a publish, treat borderline PII more
-strictly (it's about to be world-readable).
-
-## Disclosure hygiene (public repos)
-
-Everything above protects the secret **value**. This protects the **wording** — a repo can pass
-every scan in this skill and still tell an attacker exactly where to look. **This is a public
-repository** is the trigger; attackers watch open-source repos for branch names, commit
-messages, PR titles, test descriptions, and ticket URLs.
+Everything above protects the secret **value** and your **identity**. This protects the
+**wording**. A repo can pass every scan here and still tell an attacker exactly where to look.
+Attackers watch open-source repos for branch names, commit messages, PR titles, test descriptions,
+and ticket URLs.
 
 **The rule: describe what the code now does, never the threat it prevents.**
 
@@ -159,30 +164,31 @@ messages, PR titles, test descriptions, and ticket URLs.
 | Ticket link | a URL slug like `.../N8N-1234/fix-ssrf-vulnerability` | the bare ticket ID |
 
 Note the branch trap specifically: issue trackers **auto-suggest a branch name from the ticket
-title**, so a security ticket hands you a disclosing branch name by default. Rename it before
-the first push.
+title**, so a security ticket hands you a disclosing branch name by default. Rename it before the
+first push.
 
-**Customer confidentiality.** Never name a client or customer in a public-facing artifact —
-not every client has agreed to be named, and naming them can reveal details about their setup.
-Describe the case neutrally (*"a client with a large multi-site deployment"*), and use generic
-placeholders (`Acme Corp`, `client-a`) in tests, fixtures, and sample data. This applies to
-client work in every public repo.
+**Customer confidentiality.** Never name a client or customer in a public-facing artifact: not
+every client has agreed to be named, and naming them can reveal details about their setup. Describe
+the case neutrally (*"a client with a large multi-site deployment"*), and use generic placeholders
+(`Acme Corp`, `client-a`) in tests, fixtures, and sample data. The deny-list catches the names you
+listed. It cannot catch a description that identifies a client without naming them. That part is
+read.
 
-**This check is judgement, not a regex — say so rather than faking a gate.** Unlike the
-[Scan reference](#scan-reference) patterns, "does this wording disclose the vector?" cannot be
-grepped; it is read. So: **surface candidates to the user and let them decide** rather than
-hard-blocking, and never report "disclosure-clean" as if a scanner produced it. Report it as
-*read and judged*, naming what was checked. A useful first pass is `git log --oneline --all`
-plus test names, but the verdict is a human call.
+**This check is judgement, not a regex. Say so rather than faking a gate.** "Does this wording
+disclose the vector?" cannot be grepped; it is read. So surface candidates to the user and let them
+decide rather than hard-blocking, and never report "disclosure-clean" as if a scanner produced it.
+A useful first pass is `git log --oneline` for the commits being pushed plus test names.
 
-**Timing matters more than tidiness.** If a disclosing name is already pushed, renaming does
-not retract it — the old ref may be cached, forked, or in someone's clone. Treat it as a
-disclosure event: flag it, and let the user decide whether the fix needs releasing first.
+**Timing matters more than tidiness.** If a disclosing name is already pushed, renaming does not
+retract it: the old ref may be cached, forked, or in someone's clone. Treat it as a disclosure
+event, flag it, and let the user decide whether the fix needs releasing first.
 
-*Source: *eval n8n repo* §2 (mined from `n8n-io/n8n` `AGENTS.md`, 2026-08-19).*
+*Source: *eval n8n repo* §2 (mined from `n8n-io/n8n` `AGENTS.md`, 2026-08-19). Tiering,
+deny-list and structural patterns: 2026-09-23, closing the "grep-backed in secure-push itself, not
+yet built" gap recorded in *skill ip boundary*.*
 
 ## Cost Class
 
-**Lightweight** — `SKILL.md` + `examples/` only. Uses git and grep; no scripts, MCPs, or
-reference files loaded by default. History scan (Step 7) is O(history size) but still just
-git + grep.
+**Lightweight.** Two zero-dependency Node scripts plus JSON rule files. The tree scan is
+O(tracked files). `--history` is O(unique blobs in history): one `rev-list` plus one batched
+`cat-file`. The only network call is detect-tier's single anonymous GET.

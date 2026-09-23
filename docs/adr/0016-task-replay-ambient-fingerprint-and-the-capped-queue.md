@@ -1,10 +1,26 @@
 # 0016 — Task replay, the ambient fingerprint, and the capped queue
 
-- Status: accepted — **decision 3 amended by [0017](./0017-the-redundancy-cluster-as-the-unit-of-ablation.md)**
+- Status: **DEFERRED — NEVER BUILT** (see the note below). Accepted 2026-08-15, priced out the same
+  week. Amended while live: decision 3 by
+  [0017](./0017-the-redundancy-cluster-as-the-unit-of-ablation.md).
 - Date: 2026-08-15
 - Amends: [0015](./0015-error-rates-variance-reduction-and-sequential-allocation.md) decision 2;
   [0014](./0014-shadow-only-promotion-and-the-two-tier-metric.md) decision 6. Respecifies **step 1 of
   the build order**, which every ADR in this chain assumed and none verified.
+
+> **DEFERRED — NEVER BUILT.** This ADR is one link in the 0011–0017 measurement-apparatus chain,
+> which was priced out on 2026-08-15 and never implemented — on two independent grounds: **cost**
+> (50–70M tokens plus months, against a decision that is reversible by design, where a zero-cost
+> heuristic proposed most of the same set) and **unit of analysis** (page-level ablation is
+> formally refuted on a deliberately dense wiki-link graph, where redundant pages mutually mask).
+> Status corrected 2026-09-21; it read `accepted` for five weeks while the kill lived only in
+> `knowledge/concepts/`. Full deferral note and the re-open condition:
+> **[0012](./0012-shadow-ablation-and-the-sealed-audit.md)**. Reasoning:
+> *price the measurement before building it* ·
+> *attribution fails under redundancy*.
+>
+> Note for this ADR specifically: its **ambient-fingerprint hook** (decision 1) is the one piece of
+> the chain that would have had standalone value as instrumentation, and it does not exist either.
 
 ## Context
 

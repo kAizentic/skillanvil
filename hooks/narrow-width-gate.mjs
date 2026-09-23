@@ -31,7 +31,7 @@ import crypto from 'node:crypto';
 const STATE_DIR = path.join(os.tmpdir(), 'claude-narrow-gate');
 const RECEIPT_DIR = path.join(os.tmpdir(), 'claude-narrow-check');
 
-// Build output, dependencies, and scratch space are not deliverables. the operator's own
+// Build output, dependencies, and scratch space are not deliverables. The operator's own
 // scratchpad is excluded too: a throwaway probe page is not something he ships.
 const IGNORE = /(node_modules|[\\/]\.next[\\/]|[\\/]dist[\\/]|[\\/]build[\\/]|[\\/]out[\\/]|[\\/]coverage[\\/]|[\\/]\.git[\\/]|[\\/]\.cache[\\/]|[\\/]vendor[\\/]|[\\/]scratchpad[\\/]|[\\/]Temp[\\/])/i;
 

@@ -30,7 +30,7 @@ hitl_gate: none
 dependencies: []
 composes_with:
   - web-research
-  - pmm-deep-research
+  - deep-research
   - capture
   - softdev-workflows
   - grill-with-docs
@@ -99,7 +99,7 @@ not the installer."
 4. **Escalate per decision to `web-research`** — a bounded survey: field of options → shortlist →
    the decisive question (fit, pricing/limits, API surface, lock-in, hazards). Cap ~2–3 queries
    per decision. For a *genuinely wide-open, high-stakes* category, hand off **sequentially** to
-   ``pmm-deep-research`` (typed-artifact handoff) — **never embed the heavy loop inside this one.**
+   ``deep-research`` (typed-artifact handoff) — **never embed the heavy loop inside this one.**
 5. **Apply doctrine** — "adopt the capability, not the installer"; **never run a candidate's
    installer/doctor on the live machine** (ADR-0001); record honest gaps for anything unresolved.
 6. **Verdict per decision** — chosen option, alternatives considered, decisive-question answer,
@@ -115,7 +115,7 @@ researched.
 ## Failure modes
 - **Researching a product/preference assumption** (unanswerable by the web) → Guard: step 1
   rejects non-selection decisions and routes them to grill.
-- **Embedding `pmm-deep-research`** inside the loop → Guard: sequential handoff only (step 4).
+- **Embedding `deep-research`** inside the loop → Guard: sequential handoff only (step 4).
 - **Verifying everything** (breaks the budget) → Guard: high-confidence picks pass through; only
   `low` + high-stakes get the deep look.
 - **Running an installer to "test" a candidate** → Guard: ADR-0001 — never; evaluate from docs.
@@ -127,12 +127,12 @@ researched.
 - Add a re-scout trigger when a chosen tool's pricing/API materially changes.
 
 ## Dependencies
-- None hard. `web-research` and `pmm-deep-research` are soft (`composes_with`) — degrades to
+- None hard. `web-research` and `deep-research` are soft (`composes_with`) — degrades to
   WebSearch/WebFetch if Exa is absent, recording the reduced confidence as an honest gap.
 
 ## Related skills
 - `web-research` — the bounded discovery engine each decision escalates to.
-- `pmm-deep-research` — sequential escalation for a wide-open, high-stakes category (never embedded).
+- `deep-research` — sequential escalation for a wide-open, high-stakes category (never embedded).
 - `grill-with-docs` — owns product/preference + single-fact assumptions; batches selection
   decisions here from the align stage.
 - `softdev-workflows` — the pipeline whose align stage invokes this; verdicts fold into the PRD.

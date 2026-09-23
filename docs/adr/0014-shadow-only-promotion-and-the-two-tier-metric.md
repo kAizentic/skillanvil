@@ -1,9 +1,22 @@
 # 0014 — Shadow-only promotion, and the two-tier metric
 
-- Status: accepted — **decisions 3 and 5 amended by [0015](./0015-error-rates-variance-reduction-and-sequential-allocation.md)**
+- Status: **DEFERRED — NEVER BUILT** (see the note below). Accepted 2026-08-15, priced out the same
+  week. Amended while live: decisions 3 and 5 by
+  [0015](./0015-error-rates-variance-reduction-and-sequential-allocation.md).
 - Date: 2026-08-15
 - Amends: [0013](./0013-randomised-promotion-and-the-behavioural-metric.md) decisions 1–5.
   [0012](./0012-shadow-ablation-and-the-sealed-audit.md) stands except where 0013 already amended it.
+
+> **DEFERRED — NEVER BUILT.** This ADR is one link in the 0011–0017 measurement-apparatus chain,
+> which was priced out on 2026-08-15 and never implemented — on two independent grounds: **cost**
+> (50–70M tokens plus months, against a decision that is reversible by design, where a zero-cost
+> heuristic proposed most of the same set) and **unit of analysis** (page-level ablation is
+> formally refuted on a deliberately dense wiki-link graph, where redundant pages mutually mask).
+> Status corrected 2026-09-21; it read `accepted` for five weeks while the kill lived only in
+> `knowledge/concepts/`. Full deferral note and the re-open condition:
+> **[0012](./0012-shadow-ablation-and-the-sealed-audit.md)**. Reasoning:
+> *price the measurement before building it* ·
+> *attribution fails under redundancy*.
 
 > **0015 adds multiple-comparisons control, absent from 0011–0014 entirely** — 89 pages are 89
 > hypotheses, and at α=0.05 the instrument would have auto-demoted ~4–5 good pages by chance. It also

@@ -1,10 +1,30 @@
 # 0017 — The redundancy cluster as the unit of ablation
 
-- Status: accepted
+- Status: **DEFERRED — NEVER BUILT** (see the note below). Accepted 2026-08-15, priced out the same
+  week. Last ADR in the chain; nothing amends it.
 - Date: 2026-08-15
 - Amends: [0012](./0012-shadow-ablation-and-the-sealed-audit.md) (the ablation unit),
   [0015](./0015-error-rates-variance-reduction-and-sequential-allocation.md) (FDR population),
   [0016](./0016-task-replay-ambient-fingerprint-and-the-capped-queue.md) decision 3 (queue sizing).
+
+> **DEFERRED — NEVER BUILT.** This ADR is the last link in the 0011–0017 measurement-apparatus
+> chain, which was priced out on 2026-08-15 and never implemented — on two independent grounds:
+> **cost** (50–70M tokens plus months, against a decision that is reversible by design) and
+> **unit of analysis**, which is the refutation this very ADR was written to answer. Status
+> corrected 2026-09-21; it read `accepted` for five weeks while the kill lived only in
+> `knowledge/concepts/`. Full deferral note and the re-open condition:
+> **[0012](./0012-shadow-ablation-and-the-sealed-audit.md)**. Reasoning:
+> *price the measurement before building it* ·
+> *attribution fails under redundancy*.
+>
+> **Two caveats specific to this ADR, because it is the one people will want to reuse:**
+> - Its clustering rule DID ship, as `library/scripts/redundancy_clusters.py` (2026-08-19) —
+>   *"the one artifact salvaged from the killed ablation build,"* per its own docstring. It is a
+>   standalone redundancy **report** with no scoring mode, and nothing in the vault calls it.
+> - Decision 4's **masking-validation** trick — the move that makes the clustering resolution a
+>   *derived* parameter rather than a tuned knob, and the most attractive idea in the chain — is a
+>   **proposal that was never run.** No within-cluster masking has ever been observed here, so
+>   treat "derived parameter" as a design argument, not a result.
 
 ## Context
 
@@ -36,7 +56,7 @@ deleted whatever the architecture is designed to produce.
 
 Connected components over a permissive edge rule (mutual link **OR** ≥2 shared keywords) yields a
 **giant component of 33 of 88 pages — 37% of the corpus** — spanning `m365-copilot-purview-labeling`,
-`dropbox-cold-read-io-tax`, `codification-ladder` and `vault-differential-value`. Linked, but not
+`cloud-sync-cold-read-io-tax`, `codification-ladder` and `vault-differential-value`. Linked, but not
 remotely redundant. Transitive closure over a dense small-world graph produces a blob.
 
 A conjunctive rule shatters it into coherent groups:

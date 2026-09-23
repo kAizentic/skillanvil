@@ -24,7 +24,9 @@ import { homedir } from "node:os";
 import { execFile } from "node:child_process";
 
 const SEED = 200000;
-const STATE_DIR = join(homedir(), ".claude", "hooks", ".context-guard-state");
+const STATE_DIR =
+  process.env.CLAUDE_CONTEXT_GUARD_STATE ||
+  join(homedir(), ".claude", "hooks", ".context-guard-state");
 const CAL_FILE = join(STATE_DIR, "_calibration.json");
 
 function readStdin() {
@@ -112,17 +114,25 @@ function warn(payload) {
   }
 
   const envWin = Number(process.env.CLAUDE_CONTEXT_WINDOW) || 0;
-  let ceiling, calibrated;
+  let ceiling, basis;
   if (envWin > 0) {
     ceiling = envWin;
-    calibrated = true;
+    basis = "env";
   } else if (cal.learnedCeiling > 0) {
     ceiling = cal.learnedCeiling;
-    calibrated = true;
+    basis = "learned";
+  } else if (observedMax > SEED) {
+    // The seed is DISPROVEN: this machine has carried more than 200k of context without an
+    // auto-compaction, so the real window is at least observedMax. Use that as a conservative
+    // floor rather than continuing to reason against a number we know is wrong. It errs late
+    // (never warns earlier than reality) and self-corrects upward as bigger sessions are seen.
+    ceiling = observedMax;
+    basis = "observed";
   } else {
     ceiling = SEED;
-    calibrated = false;
+    basis = "seed";
   }
+  const calibrated = basis === "env" || basis === "learned";
 
   const stateFile = join(STATE_DIR, `${sessionId.replace(/[^\w.-]/g, "_")}.json`);
   let st = {};
@@ -147,13 +157,19 @@ function warn(payload) {
 
   const pct = (tokens / ceiling) * 100;
 
-  // honesty guard: uncalibrated AND THIS session has itself climbed into warn territory
-  // (pct >= low) while the global high-water mark proves the 200k seed is too low (near/over
-  // the assumed ceiling with no auto-compaction ever) → the tiers would be nonsense, so
-  // refuse to warn and say why. Gating on the CURRENT session's pct — not just the global
-  // observedMax — is what stops a fresh, near-empty session from inheriting another
-  // session's pressure and firing this on turn 1. Fires once per session.
-  if (!calibrated && pct >= low && observedMax >= ceiling * 0.98) {
+  // honesty guard: the seed is merely SUSPECT — the high-water mark has crept up on it but
+  // never passed it, so we cannot tell a nearly-full 200k window from a larger one we have
+  // not filled yet. Tiers would be a coin flip, so refuse to warn and say why. Fires once
+  // per session.
+  //
+  // This gate used to also cover the disproven case (observedMax well past the seed), and
+  // that made it circular: it judged "is this session under pressure?" using pct against the
+  // very seed observedMax had already refuted. A fresh session in this vault opens at ~140k
+  // — 70% of the disproven seed, 16% of the real window — so the gate opened on turn 1 of
+  // every new session. Measured 2026-09-18: 639 of 640 session state files recorded this
+  // notice; only 2 ever recorded a real tier warning. The disproven case now resolves to
+  // basis "observed" above and never reaches here.
+  if (basis === "seed" && pct >= low && observedMax >= ceiling * 0.98) {
     if (!st.uncalNoticed) {
       saveState({ uncalNoticed: true });
       process.stdout.write(
@@ -180,7 +196,11 @@ function warn(payload) {
 
   const kTok = Math.round(tokens / 1000);
   const pctR = Math.round(pct);
-  const seedNote = calibrated ? "" : " (assuming 200k — uncalibrated)";
+  const seedNote = calibrated
+    ? ""
+    : basis === "observed"
+      ? ` (vs ~${Math.round(ceiling / 1000)}k observed — estimated)`
+      : " (assuming 200k — uncalibrated)";
   let msg;
   if (tier === 1) {
     msg = `🟡 Context ${pctR}%${seedNote} (~${kTok}k) — approaching the dumb zone. Good moment to wrap the current thread, /capture, or plan a /compact.`;

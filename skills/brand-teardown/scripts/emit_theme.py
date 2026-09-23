@@ -31,7 +31,7 @@ from pathlib import Path
 
 # Default vault source location of the apply-theme theme library (Windows).
 DEFAULT_SOURCE_THEMES = Path(
-    r"C:\Users\user\Dropbox\the operator\<VAULT_ROOT>"
+    r"<VAULT_ROOT>"
     r"\agent-os\Skills\Coding\apply-theme\themes"
 )
 # Runtime (compiled) copy — best-effort convenience write.

@@ -21,8 +21,17 @@
  *   2. every source support file a skill declares is present in its runtime copy
  *   3. no atomic-publish debris was left behind by a crashed run
  *
- * Usage:  node check-publish-integrity.mjs [--vault <path>] [--quiet]
+ * Usage:  node check-publish-integrity.mjs [--vault <path>] [--quiet] [--json]
  * Exit:   0 = clean, 1 = findings, 2 = the check itself could not run.
+ *
+ * --json makes this an ADR-0018 *instance*: the contract is "the JSON it emits under
+ * --json", not a library it imports. Added 2026-09-22 because compile-skills.mjs's
+ * probeRanCleanly (landed the same day) distinguishes "real finding" from "the script
+ * crashed" by re-running the check with --json and parsing stdout — on the stated premise
+ * that "each of these checks already implements it". This one did not, so its findings
+ * path dead-ended in "skipped (check errored)" and the "runtime tree is NOT usable as
+ * published" branch was unreachable. The regression was invisible on the clean path,
+ * which is the path it was verified on.
  */
 
 import fs from 'node:fs';
@@ -213,6 +222,64 @@ function checkDebris() {
 const hooksChecked = checkHooks();
 const skillsChecked = checkPublished();
 checkDebris();
+
+// ---------------------------------------------------------------------------
+// 4. The instrument asserts its own measurement conditions (added 2026-09-22)
+// ---------------------------------------------------------------------------
+// Every assertion above iterates a set and checks each member, so an EMPTY set passes all of
+// them vacuously. Measured: with CLAUDE_SKILLS_DIR pointed at an empty directory this script
+// printed "OK - 26 hook path(s) resolve, 0 published skill(s) complete, no debris" and exited
+// 0. The one instrument whose job is to prove the published tree is usable reported success on
+// a tree that did not exist. That is *empty set passes every check*.
+//
+// It is not an oversight in checkPublished -- `if (!fs.existsSync(outDir)) continue` is
+// deliberate and correct, because deprecated skills are legitimately not emitted, and an
+// earlier structural diff produced two false "missing skill" findings without it. The defect is
+// that the skip has no FLOOR: one absent skill and eighty-three absent skills are the same
+// reading. *proxy signal collapses the two states* -- "retired" and "never published"
+// share a signal.
+//
+// So: a count of zero is only trustworthy if something could have been counted. These assert
+// the conditions rather than the results, and they cost nothing on a healthy run.
+if (!fs.existsSync(RUNTIME_DIR)) {
+  add('published', `the runtime skills dir does not exist at all: ${RUNTIME_DIR} ` +
+    `- nothing was published, and every completeness check above passed vacuously`);
+} else if (skillsChecked === 0) {
+  const sourceCount = fs.existsSync(VAULT_SKILLS_DIR)
+    ? fs.readdirSync(VAULT_SKILLS_DIR).filter((c) => {
+        if (SKIP_DIRS.has(c) || c.startsWith('_') || c.startsWith('.')) return false;
+        try { return fs.statSync(path.join(VAULT_SKILLS_DIR, c)).isDirectory(); } catch { return false; }
+      }).length
+    : 0;
+  if (sourceCount > 0) {
+    add('published', `0 of the source skills are present in ${RUNTIME_DIR} ` +
+      `(${sourceCount} source categor(ies) exist) - the runtime tree is empty or wrong, ` +
+      `not merely incomplete`);
+  }
+}
+
+// Same shape, and the more consequential half: this script exists because a hook path in
+// settings.json broke every open session for ten days. If settings.json is absent, unreadable
+// or carries no hooks block, checkHooks() iterates nothing and reports clean -- the exact
+// condition it was written to detect, rendered invisible.
+if (hooksChecked === 0) {
+  add('hook', `no hook commands were found in any settings file ` +
+    `(${SETTINGS_FILES.filter((f) => fs.existsSync(f)).length} of ${SETTINGS_FILES.length} ` +
+    `exist on disk) - this check could not observe the thing it exists to observe`);
+}
+
+// The instance contract: a FLAT {category: [msg]} map -- the shape design-system-lint.mjs
+// emits and open-findings.mjs iterates, deliberately not a fifth shape. All three keys are
+// always present even when empty: open-findings throws on "an object with no categories",
+// and a category omitted when empty makes "clean" and "did not run" indistinguishable to a
+// consumer that counts keys. Exit code is unchanged from the human path (0 clean / 1
+// findings) so --json does not introduce a second exit convention for the same check.
+if (args.includes('--json')) {
+  const byKind = { hook: [], published: [], debris: [] };
+  for (const f of findings) (byKind[f.kind] ||= []).push(f.msg);
+  process.stdout.write(JSON.stringify(byKind, null, 2) + '\n');
+  process.exit(findings.length ? 1 : 0);
+}
 
 if (!findings.length) {
   if (!quiet) {

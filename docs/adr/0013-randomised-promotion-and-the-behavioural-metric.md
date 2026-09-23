@@ -1,9 +1,22 @@
 # 0013 — Randomised promotion, and the behavioural divergence metric
 
-- Status: accepted — **decisions 1–5 amended by [0014](./0014-shadow-only-promotion-and-the-two-tier-metric.md)**
+- Status: **DEFERRED — NEVER BUILT** (see the note below). Accepted 2026-08-15, priced out the same
+  week. Amended while live: decisions 1–5 by
+  [0014](./0014-shadow-only-promotion-and-the-two-tier-metric.md).
 - Date: 2026-08-15
 - Amends: [0012](./0012-shadow-ablation-and-the-sealed-audit.md) decisions 2 and 8, and its build order.
   0012 otherwise stands.
+
+> **DEFERRED — NEVER BUILT.** This ADR is one link in the 0011–0017 measurement-apparatus chain,
+> which was priced out on 2026-08-15 and never implemented — on two independent grounds: **cost**
+> (50–70M tokens plus months, against a decision that is reversible by design, where a zero-cost
+> heuristic proposed most of the same set) and **unit of analysis** (page-level ablation is
+> formally refuted on a deliberately dense wiki-link graph, where redundant pages mutually mask).
+> Status corrected 2026-09-21; it read `accepted` for five weeks while the kill lived only in
+> `knowledge/concepts/`. Full deferral note and the re-open condition:
+> **[0012](./0012-shadow-ablation-and-the-sealed-audit.md)**. Reasoning:
+> *price the measurement before building it* ·
+> *attribution fails under redundancy*.
 
 > **0014 moves promotion into the shadow run.** Decision 1's justifying asymmetry — "adding a page
 > cannot break anything" — is false for the pages this vault would promote: they are *distracting*

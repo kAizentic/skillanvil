@@ -50,7 +50,7 @@ bin.
 2. **Evidence is pinned to the artifact it attests to.** Each entry in the generated
    `components/verify-results.json` records a **content hash** of the component `.tsx`. The lint trusts a
    result only when the hash matches the current file. A non-matching result is **not evidence — it is
-   absence**. (Not mtime: the vault lives in Dropbox, which touches mtimes on sync and would launder
+   absence**. (Not mtime: the vault lives in the cloud-sync folder, which touches mtimes on sync and would launder
    staleness into a legitimate-looking value — tell #1 of the silent-degradation concept.)
 3. **Absence is loud, never silent.** Missing evidence → `no_machine_evidence`; hash mismatch →
    `stale_machine_evidence`. Day one, every component reports `no_machine_evidence`; that noise is the
@@ -76,9 +76,9 @@ bin.
   records for "review queue" — and would pass the DiagonalBorderSweep bug.
 - **Two independent markers, no contradiction logic.** Rejected: records both signals, catches no
   regressions. Strictly weaker for the same plumbing.
-- **mtime freshness instead of content hashes.** Rejected: Dropbox sync touches mtimes (decision 2).
+- **mtime freshness instead of content hashes.** Rejected: cloud sync touches mtimes (decision 2).
 - **Run `verify` nightly** so evidence is always fresh. Rejected: needs headless Chrome + a Vite server in
-  the nightly tail, and the harness deliberately installs *outside* Dropbox — the nightly would depend on
+  the nightly tail, and the harness deliberately installs *outside* the cloud-sync folder — the nightly would depend on
   a scratch path that may not exist. Re-introduces the nightly-noise problem it was meant to solve.
 - **Suppress `no_machine_evidence` until first run.** Rejected: that is the silent branch, and silence is
   exactly the failure mode being guarded against.

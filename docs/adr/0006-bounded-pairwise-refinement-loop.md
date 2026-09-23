@@ -46,7 +46,7 @@ oracle instead of a pairwise judge:
 - `tdd` (red-green-refactor) and `diagnose` (reproduce → fix → regression test) are **oracle-backed** —
   a passing test is ground truth; don't bolt a pairwise judge onto them.
 - Use this pattern where "correct" is a matter of taste/quality with no test: design (`brand-to-site`),
-  a research report's synthesis (`pmm-deep-research`), long-form writing/critique.
+  a research report's synthesis (`deep-research`), long-form writing/critique.
 
 The two families compose: an oracle-backed loop can *contain* a pairwise-refinement sub-loop for the
 subjective parts (e.g. code passes tests **and** reads well), but the oracle governs correctness.
@@ -54,7 +54,7 @@ subjective parts (e.g. code passes tests **and** reads well), but the oracle gov
 ## Instances & candidate adopters
 - **`brand-to-site`** (reference instance) — Step 4.5 SOTA-benchmark loop (its ADR-0002): pairwise vs
   a category award exemplar, cap-3, best-so-far, human-ratified ceiling.
-- **`pmm-deep-research`** (instance, 2026-07-02) — Stage 5 synthesis refinement: pairwise vs a
+- **`deep-research`** (instance, 2026-07-02) — Stage 5 synthesis refinement: pairwise vs a
   prior-best + an exemplar report, grounded checks (schema/coverage/corroboration/contradiction),
   cap-3, best-so-far; its **existing Stage-6 human gate is invariant 7**. Shows the pattern on a
   non-visual subjective quality (analytical sharpness) with an anti-gaming guard (no invented findings).

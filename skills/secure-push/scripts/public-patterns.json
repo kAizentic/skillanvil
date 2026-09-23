@@ -1,0 +1,11 @@
+{
+  "_note": "PUBLIC-TIER structural patterns for credential-scan.mjs --tier public. These catch the GENERIC shapes by which a private system leaks into a public repo: note-app links, private-folder names, real user home paths, and email addresses. Nothing personal belongs in this file - it is tracked, and it ships inside the public slice alongside secure-push. Personal names, clients and local paths go in the PRIVATE deny-list (see public-denylist.example.json). Every pattern here is hard in the public tier. Use allowPaths (suffix match) for an intentional occurrence rather than weakening the regex.",
+  "patterns": [
+    { "name": "wikilink", "re": "\\[\\[(?=[^\\]\\n]*[A-Za-z])[^\\s\\],'\"`$][^\\]\\n,'\"`]{0,200}\\]\\]", "_why": "An Obsidian-style `link` is a pointer into the private knowledge base; it tells a reader the page exists and what it is called. Requires a letter and no leading space or $ so bash [[ -f x ]], nested arrays and code that GENERATES links ([[${name}]]) do not fire." },
+    { "name": "private-folder", "re": "\\b(your-private-folder-a|your-private-folder-b)\\b", "_why": "Folder names that exist only in your private tree. Replace with yours: each one is a pointer into it." },
+    { "name": "private-root", "re": "your-private-root-name", "_why": "Your private workspace root, by name. Replace with yours." },
+    { "name": "windows-user-home", "re": "[A-Za-z]:\\\\+Users\\\\+(?!(user|you|USERNAME|me|name)\\b|<|%|\\$)[A-Za-z0-9._-]{2,}", "flags": "i", "_why": "A real Windows account name in a path. Generic placeholders (user, USERNAME, <...>, %USERNAME%, $USER) and single-character names are allowed." },
+    { "name": "posix-user-home", "re": "(/c/Users/|/Users/|/home/)(?!(user|you|USERNAME|me|name|runner)\\b|<|\\$)[A-Za-z0-9._-]{2,}", "_why": "The same leak in Git Bash, macOS and Linux form. Single-character names (/Users/x) are test placeholders: a false positive measured on the live slice 2026-09-23." },
+    { "name": "email-address", "re": "\\b(?!(noreply|no-reply|git)@)[A-Za-z0-9._%+-]+@(?!example\\.|users\\.noreply\\.github\\.com)[A-Za-z0-9-]+(\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,}\\b", "_why": "PII. Test and placeholder domains, noreply senders and git@host SSH remotes are allowed." }
+  ]
+}

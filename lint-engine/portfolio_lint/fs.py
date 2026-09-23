@@ -21,8 +21,31 @@ def read(p: Path) -> str:
         return p.read_text(encoding="utf-8", errors="replace")
 
 
-def all_md(root: Path) -> list[Path]:
-    return [p for p in root.rglob("*.md") if p.is_file()]
+# Generated trees are never standing stock (CONTEXT.md). Byte-identical to
+# wiki_lint.py:293, which is the point -- this module existed for a month with a bare rglob
+# while the script it was generalized FROM already carried the exclusion.
+GENERATED_DIRS = (".cache", "node_modules", ".git")
+
+
+def all_md(root: Path, exclude: tuple[str, ...] = GENERATED_DIRS) -> list[Path]:
+    """Every .md under root, skipping generated trees.
+
+    THE EXCLUSION IS NOT COSMETIC. `knowledge/.cache/mutation-snapshots/` holds full copies of
+    real wiki pages, written by the distill sweep. Measured 2026-09-22: 512 .md under knowledge,
+    **203 of them snapshots** -- 40% of the corpus is duplicates of the other 60%, carrying
+    identical wikilinks and identical frontmatter.
+
+    Without this, the same defect that hit `cluster_audit.py` applies here: there every page
+    had an inbound link from a snapshot, so `router_only` collapsed to 0 and the audit had been
+    silently reporting nothing (after the fix: router_only=31, clusters=6). It is not merely
+    inflation -- a derived check can INVERT to zero.
+
+    `pass exclude=()` to walk everything deliberately; the default is the safe direction.
+    """
+    if not exclude:
+        return [p for p in root.rglob("*.md") if p.is_file()]
+    return [p for p in root.rglob("*.md")
+            if p.is_file() and not any(part in exclude for part in p.parts)]
 
 
 def rel(p: Path, base: Path) -> str:

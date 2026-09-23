@@ -25,8 +25,9 @@ problems — they were build, governance, and measurement problems.
 | `docs/routines.md` | How scheduled, unattended agent routines are defined and governed. |
 | `compiler/` | Compiles the skill source tree to a runtime; a publish-integrity checker; a resource/MCP topology map builder. |
 | `lint-engine/` | `portfolio_lint` — deterministic structural checks over a linked markdown corpus (frontmatter schema, link resolution, orphan detection). |
-| `hooks/` | 17 runtime enforcement hooks — pre-tool guards, background-process registration and reaping, context pressure, error reflexes. |
-| `skills/` | 8 authored skills, included as worked examples of the schema. |
+| `docs/skill-dispatch.md` | The session-start reflex the `skill-dispatch` hook injects. |
+| `hooks/` | 20 runtime enforcement hooks — pre-tool guards, background-process registration and reaping, context pressure, just-in-time rule delivery, error reflexes. |
+| `skills/` | 9 authored skills, included as worked examples of the schema. |
 
 ## The idea the whole thing rests on
 
@@ -51,11 +52,17 @@ the correct unit of ablation on a densely linked corpus (0017).
 node hooks/shell-edit-guard.test.mjs
 node hooks/inbox-glob-delete-guard.test.mjs
 node hooks/bg-launch-guard.test.mjs
-py  lint-engine/tests/test_wikilink_nonmd.py
+node hooks/immutable-sources-guard.test.mjs
+node hooks/rule-delivery.test.mjs
+node hooks/context-guard.test.mjs
+node skills/secure-push/scripts/credential-scan.test.mjs
+node skills/secure-push/scripts/patch-notes.test.mjs
 ```
 
-All four are self-contained: the node guards assert against synthetic command strings, and the
-lint test builds a corpus in a temporary directory. Exit code 0 is pass.
+All eight are self-contained. The guards assert against synthetic tool payloads, and the
+scanner and patch-notes suites build throwaway git repositories in a temporary directory. Each
+suite includes the case where the check must stay **silent**, which is the branch a
+blocking-only test never exercises. Exit code 0 is pass.
 
 ## License
 

@@ -57,7 +57,7 @@ function toLane(tok) {
 const CLUSTER_OF = {
   'web-research': 'Sensing / Research', 'intel-scan': 'Sensing / Research',
   'blogwatcher': 'Sensing / Research', 'intent-scout': 'Sensing / Research',
-  'decision-scout': 'Sensing / Research', 'pmm-deep-research': 'Sensing / Research',
+  'decision-scout': 'Sensing / Research', 'deep-research': 'Sensing / Research',
   'apply-insights': 'Sensing / Research', 'graincrawl': 'Sensing / Research',
   'notcrawl': 'Sensing / Research', 'granola-to-design-concept': 'Sensing / Research',
   'transcript-pull': 'Sensing / Research', 'defuddle': 'Sensing / Research',

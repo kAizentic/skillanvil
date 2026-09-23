@@ -159,7 +159,7 @@ node "agent-os/compiler/compile-skills.mjs" cowork --push   # mirror + git commi
 **Automate it** — a Windows Scheduled Task alongside the other routines, e.g.:
 ```powershell
 schtasks /Create /TN "Second Brain - Skills to Cowork" /SC DAILY /ST 05:15 /TR ^
-  "node \"%USERPROFILE%\Dropbox\the operator\<VAULT_ROOT>\agent-os\compiler\compile-skills.mjs\" all && node \"...\compile-skills.mjs\" cowork --push"
+  "node \"<VAULT_ROOT>\agent-os\compiler\compile-skills.mjs\" all && node \"...\compile-skills.mjs\" cowork --push"
 ```
 Register only **after** the marketplace repo has a private remote (else the push
 step warns and no-ops).

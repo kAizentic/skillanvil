@@ -1,9 +1,22 @@
 # 0015 — Error rates, variance reduction, and sequential allocation
 
-- Status: accepted — **decision 2 amended by [0016](./0016-task-replay-ambient-fingerprint-and-the-capped-queue.md)**
+- Status: **DEFERRED — NEVER BUILT** (see the note below). Accepted 2026-08-15, priced out the same
+  week. Amended while live: decision 2 by
+  [0016](./0016-task-replay-ambient-fingerprint-and-the-capped-queue.md).
 - Date: 2026-08-15
 - Amends: [0014](./0014-shadow-only-promotion-and-the-two-tier-metric.md) decisions 3 and 5.
   Adds a control absent from **0011–0014 entirely**.
+
+> **DEFERRED — NEVER BUILT.** This ADR is one link in the 0011–0017 measurement-apparatus chain,
+> which was priced out on 2026-08-15 and never implemented — on two independent grounds: **cost**
+> (50–70M tokens plus months, against a decision that is reversible by design, where a zero-cost
+> heuristic proposed most of the same set) and **unit of analysis** (page-level ablation is
+> formally refuted on a deliberately dense wiki-link graph, where redundant pages mutually mask).
+> Status corrected 2026-09-21; it read `accepted` for five weeks while the kill lived only in
+> `knowledge/concepts/`. Full deferral note and the re-open condition:
+> **[0012](./0012-shadow-ablation-and-the-sealed-audit.md)**. Reasoning:
+> *price the measurement before building it* ·
+> *attribution fails under redundancy*.
 
 > **0016 caps the review queue by size rather than by threshold.** The asymmetry below stands, but the
 > loose side is now bounded by *drain capacity*, not confidence: measured drain rate falls from 61.8%

@@ -1,8 +1,42 @@
 # 0012 — Shadow ablation and the sealed audit
 
-- Status: accepted — **amended by [0013](./0013-randomised-promotion-and-the-behavioural-metric.md)**
+- Status: **DEFERRED — NEVER BUILT.** Accepted 2026-08-15, priced out the same week; see the
+  deferral note below before treating any decision here as in force. Amended while live by
+  [0013](./0013-randomised-promotion-and-the-behavioural-metric.md).
 - Date: 2026-08-15
 - Supersedes: [0011](./0011-ground-the-corpus-with-oracles-not-holdouts.md)
+
+> **DEFERRAL NOTE — read first. The apparatus specified by 0012–0017 does not exist, and the
+> decision not to build it was taken on two independent grounds.** Status corrected 2026-09-21:
+> for five weeks these six ADRs all read `accepted`, so read in isolation — which is how an ADR
+> directory gets read — they presented as six in-force decisions specifying an instrument nobody
+> intended to build. The kill was recorded only in `knowledge/concepts/`, never here.
+>
+> - **Cost.** The 0011–0017 chain was priced at **50–70M tokens plus months**. A
+>   value-of-information check failed on inspection: the decision it would inform (which of ~40
+>   pages to demote) is **reversible by design**, and a zero-cost heuristic proposed most of the
+>   same set. An EVPI below the cost of the study is a *sufficient* condition to stop.
+>   → *price the measurement before building it*
+> - **Unit of analysis.** Page-level ablation over a deliberately dense wiki-link graph is
+>   **formally refuted for this corpus**, not merely noisy: redundant pages mutually mask, so both
+>   score inert and what they jointly carried is lost. This vault is built for the failing
+>   condition — `CLAUDE.md` names dense linking as a design *goal*.
+>   → *attribution fails under redundancy*
+>
+> Either check alone would have stopped the build; the second was found at round 7 of 8, having
+> been assumed since round 2.
+>
+> **This is a deferral, not an abandonment, and the distinction is load-bearing** — an unnamed
+> deferral is quiet abandonment wearing a deferral's clothes. Re-open when **any** of:
+> the six-question scoped review yields genuine candidates *and* its ranking is overturned more
+> than occasionally; the corpus passes **~150 concept pages**; or *"did this situation arise?"*
+> stops being answerable from memory.
+>
+> **What shipped instead**, for minutes of work rather than months: `wiki-lint`'s
+> `applies_when_missing` gate, addressing *admission* rather than retirement
+> (*admission gate beats retirement audit* — "this should have been ADR 0011"). The one
+> salvaged artifact is `library/scripts/redundancy_clusters.py`, which runs standalone as a
+> redundancy **report** and has no scoring mode; nothing in the vault calls it.
 
 > **0013 amends decisions 2 and 8 and the build order.** It resolves the two items this ADR left open:
 > the exposure confound (via randomised *promotion*, after intervention harvesting was measured

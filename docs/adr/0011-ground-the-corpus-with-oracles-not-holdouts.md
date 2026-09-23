@@ -7,13 +7,16 @@
 > the decisions below — most importantly the "structural gift" (that taste pages need no oracle) and
 > the rejection of the control arm. This ADR is retained unedited because the reversal is the record:
 > it was derived by consulting only the corpus it was designed to audit, which is the failure mode it
-> exists to prevent. Read 0012 for the decisions in force; read this one for why they changed.
+> exists to prevent. Read this one for why the decisions changed — but note (added 2026-09-21) that
+> **none of the chain's decisions are in force**: 0012–0017 were priced out on 2026-08-15 and the
+> apparatus was never built. See the deferral note in
+> **[0012](./0012-shadow-ablation-and-the-sealed-audit.md)**.
 
 > **`decay_class` shipped as `verifiability:` — noted 2026-08-20.** Decision 3's key was never written
 > under that name, which made this ADR read for five days as an open, unbuilt gate. It is not. The same
 > job — *which oracle can settle this page's claims, and which must refuse* — shipped in
 > *vault page schema* as **`verifiability:`** on 2026-08-15, graduated to **HARD** on
-> 2026-08-19 (`verifiability_missing`), and now carries a value on effectively every concept page
+> 2026-08-19 (`verifiability_missing`), and now carries a value on effectively every `concepts/` page
 > (101 across 102; 116 vault-wide) with the two consumers this ADR required: challenger-pass routing,
 > and `wiki-lint`'s `external_provenance_untraceable`. **Do not add `decay_class` as a second key** —
 > that is a duplicate over a HARD-enforced contract (*keyed extractor widening is a migration*).
